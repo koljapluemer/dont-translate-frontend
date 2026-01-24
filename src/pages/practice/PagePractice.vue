@@ -21,8 +21,8 @@ const progressMap = ref<Map<string, LearningProgress>>(new Map())
 const currentPracticeCard = ref<PracticeCard | null>(null)
 const currentFlashcard = ref<FlashCard | null>(null)
 const selectedLanguage = ref<string>('')
-const recentPracticeIds = ref<string[]>([])
-const COOLDOWN_SIZE = 4
+const lastFlashcardId = ref<string | null>(null)
+const lastWasMemorize = ref(false)
 const isLoading = ref(true)
 
 const isCurrentCardNew = computed(() => {
@@ -35,16 +35,6 @@ const isCurrentCardNew = computed(() => {
 function buildProgressId(flashcardId: string, lang: string, direction: Direction): string {
   const baseId = flashcardId.replace('flashcard:', '')
   return `learning-progress:${baseId}:${lang}:${direction}`
-}
-
-function addToRecentPractice(practiceCard: PracticeCard) {
-  const id = `${practiceCard.flashcardId}:${practiceCard.languageCode}:${practiceCard.direction}`
-  recentPracticeIds.value = [id, ...recentPracticeIds.value].slice(0, COOLDOWN_SIZE)
-}
-
-function isInCooldown(practiceCard: PracticeCard): boolean {
-  const id = `${practiceCard.flashcardId}:${practiceCard.languageCode}:${practiceCard.direction}`
-  return recentPracticeIds.value.includes(id)
 }
 
 async function loadData() {
@@ -77,34 +67,27 @@ function getEligiblePracticeCards(): PracticeCard[] {
   if (!lang) return []
 
   const eligible: PracticeCard[] = []
+  const now = new Date()
 
   for (const card of flashcards.value) {
-    // Skip cards that don't have the selected language
     if (!(lang in card.languages)) continue
 
-    const i2wProgressId = buildProgressId(card.id, lang, 'i2w')
     const w2iProgressId = buildProgressId(card.id, lang, 'w2i')
+    const i2wProgressId = buildProgressId(card.id, lang, 'i2w')
 
-    const i2wProgress = progressMap.value.get(i2wProgressId)
     const w2iProgress = progressMap.value.get(w2iProgressId)
+    const i2wProgress = progressMap.value.get(i2wProgressId)
 
-    // Check i2w eligibility
-    const i2wPractice: PracticeCard = { flashcardId: card.id, languageCode: lang, direction: 'i2w' }
-    if (!i2wProgress?.isDisabled && !isInCooldown(i2wPractice)) {
-      eligible.push(i2wPractice)
+    // w2i (word-to-image) is always eligible if not disabled
+    if (!w2iProgress?.isDisabled) {
+      eligible.push({ flashcardId: card.id, languageCode: lang, direction: 'w2i' })
     }
 
-    // w2i is only eligible if i2w has been seen and i2w is not currently due
-    if (i2wProgress && !w2iProgress?.isDisabled) {
-      const i2wDue = new Date(i2wProgress.due)
-      const now = new Date()
-
-      // i2w must not be currently due for w2i to be eligible
-      if (i2wDue > now) {
-        const w2iPractice: PracticeCard = { flashcardId: card.id, languageCode: lang, direction: 'w2i' }
-        if (!isInCooldown(w2iPractice)) {
-          eligible.push(w2iPractice)
-        }
+    // i2w (image-to-word) is only eligible if w2i has been seen and w2i is not currently due
+    if (w2iProgress && !i2wProgress?.isDisabled) {
+      const w2iDue = new Date(w2iProgress.due)
+      if (w2iDue > now) {
+        eligible.push({ flashcardId: card.id, languageCode: lang, direction: 'i2w' })
       }
     }
   }
@@ -116,7 +99,9 @@ function selectNextCard(): { practiceCard: PracticeCard; flashcard: FlashCard } 
   const eligible = getEligiblePracticeCards()
   if (eligible.length === 0) return null
 
-  // Separate into unseen and due
+  const now = new Date()
+
+  // Categorize cards
   const unseen: PracticeCard[] = []
   const due: PracticeCard[] = []
 
@@ -126,25 +111,62 @@ function selectNextCard(): { practiceCard: PracticeCard; flashcard: FlashCard } 
 
     if (!progress) {
       unseen.push(pc)
-    } else if (new Date(progress.due) <= new Date()) {
+    } else if (new Date(progress.due) <= now) {
       due.push(pc)
     }
   }
 
-  // 10% preference for new cards
-  const preferUnseen = Math.random() < 0.1
+  // Filter functions
+  const notSameFlashcard = (pc: PracticeCard) => pc.flashcardId !== lastFlashcardId.value
+
+  // Priority 1: Avoid same flashcard twice (highest priority)
+  // Priority 2: Avoid consecutive memorize flows (if last was memorize, prefer due cards)
 
   const pickRandom = <T>(items: T[]): T | null => {
     if (items.length === 0) return null
     return items[Math.floor(Math.random() * items.length)] ?? null
   }
 
+  // Filter out same flashcard if possible
+  const dueFiltered = due.filter(notSameFlashcard)
+  const unseenFiltered = unseen.filter(notSameFlashcard)
+
+  // If last was memorize, strongly prefer due cards to avoid back-to-back memorize
+  if (lastWasMemorize.value) {
+    // Try due cards (not same flashcard)
+    if (dueFiltered.length > 0) {
+      const selected = pickRandom(dueFiltered)
+      if (selected) {
+        const flashcard = flashcards.value.find(c => c.id === selected.flashcardId)
+        if (flashcard) return { practiceCard: selected, flashcard }
+      }
+    }
+    // Fall back to due cards (even same flashcard, but different direction)
+    if (due.length > 0) {
+      const selected = pickRandom(due)
+      if (selected) {
+        const flashcard = flashcards.value.find(c => c.id === selected.flashcardId)
+        if (flashcard) return { practiceCard: selected, flashcard }
+      }
+    }
+  }
+
+  // Normal selection: 10% preference for new cards
+  const preferUnseen = Math.random() < 0.1
+
   let selected: PracticeCard | null = null
-  if (preferUnseen && unseen.length > 0) {
-    selected = pickRandom(unseen)
+
+  if (preferUnseen && unseenFiltered.length > 0) {
+    selected = pickRandom(unseenFiltered)
+  } else if (dueFiltered.length > 0) {
+    selected = pickRandom(dueFiltered)
+  } else if (unseenFiltered.length > 0) {
+    selected = pickRandom(unseenFiltered)
   } else if (due.length > 0) {
+    // Allow same flashcard as last resort
     selected = pickRandom(due)
   } else if (unseen.length > 0) {
+    // Allow same flashcard as last resort
     selected = pickRandom(unseen)
   }
 
@@ -162,7 +184,9 @@ async function handleNewCardComplete() {
   const { flashcardId, languageCode, direction } = currentPracticeCard.value
   await initializeNewCard(flashcardId, languageCode, direction)
   await loadData()
-  addToRecentPractice(currentPracticeCard.value)
+
+  lastFlashcardId.value = flashcardId
+  lastWasMemorize.value = true
 
   const next = selectNextCard()
   currentPracticeCard.value = next?.practiceCard ?? null
@@ -175,7 +199,9 @@ async function handleKnownCardComplete(rating: Rating) {
   const { flashcardId, languageCode, direction } = currentPracticeCard.value
   await updateCardProgress(flashcardId, languageCode, direction, rating)
   await loadData()
-  addToRecentPractice(currentPracticeCard.value)
+
+  lastFlashcardId.value = flashcardId
+  lastWasMemorize.value = false
 
   const next = selectNextCard()
   currentPracticeCard.value = next?.practiceCard ?? null
@@ -185,12 +211,10 @@ async function handleKnownCardComplete(rating: Rating) {
 onMounted(async () => {
   await loadData()
 
-  // Seed from public data if no flashcards exist
   if (flashcards.value.length === 0) {
     await seedFromPublicData()
   }
 
-  // Get selected language or auto-select first available
   const stored = getSelectedLanguage()
   const availableLangs = new Set<string>()
   for (const card of flashcards.value) {
@@ -202,7 +226,6 @@ onMounted(async () => {
   if (stored && availableLangs.has(stored)) {
     selectedLanguage.value = stored
   } else if (availableLangs.size > 0) {
-    // Default to German if available, otherwise first alphabetically
     const defaultLang = availableLangs.has('deu') ? 'deu' : Array.from(availableLangs).sort()[0]
     if (defaultLang) {
       selectedLanguage.value = defaultLang
@@ -220,7 +243,6 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col gap-4 items-center w-full max-w-lg mx-auto flex-1 pt-10 px-4">
-
     <div v-if="isLoading">
       Loading...
     </div>

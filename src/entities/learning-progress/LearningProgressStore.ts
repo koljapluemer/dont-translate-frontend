@@ -1,0 +1,145 @@
+import { db } from '@/db/db'
+import type { LearningProgress } from '@/db/LearningProgress'
+import { fsrs, createEmptyCard, Rating, type Card } from 'ts-fsrs'
+
+export type Direction = 'i2w' | 'w2i'
+
+const buildProgressId = (flashcardId: string, lang: string, direction: Direction): string => {
+  const baseId = flashcardId.replace('flashcard:', '')
+  return `learning-progress:${baseId}:${lang}:${direction}`
+}
+
+export const loadLearningProgress = async (): Promise<LearningProgress[]> => {
+  return await db.learningProgress.toArray()
+}
+
+export const initializeNewCard = async (
+  flashcardId: string,
+  lang: string,
+  direction: Direction
+): Promise<void> => {
+  const now = new Date()
+  const progressId = buildProgressId(flashcardId, lang, direction)
+  const initialCard = createEmptyCard(now)
+
+  const progressEntity: LearningProgress = {
+    id: progressId,
+    due: initialCard.due,
+    stability: initialCard.stability,
+    difficulty: initialCard.difficulty,
+    elapsed_days: initialCard.elapsed_days,
+    scheduled_days: initialCard.scheduled_days,
+    learning_steps: initialCard.learning_steps,
+    reps: initialCard.reps,
+    lapses: initialCard.lapses,
+    state: initialCard.state,
+    last_review: initialCard.last_review
+  }
+
+  await db.learningProgress.add(progressEntity)
+}
+
+export const updateCardProgress = async (
+  flashcardId: string,
+  lang: string,
+  direction: Direction,
+  rating: Rating
+): Promise<void> => {
+  const now = new Date()
+  const progressId = buildProgressId(flashcardId, lang, direction)
+
+  const existing = await db.learningProgress.get(progressId)
+  if (!existing) throw new Error(`Progress ${progressId} not found`)
+
+  const currentCard: Card = {
+    due: existing.due,
+    stability: existing.stability,
+    difficulty: existing.difficulty,
+    elapsed_days: existing.elapsed_days,
+    scheduled_days: existing.scheduled_days,
+    learning_steps: existing.learning_steps,
+    reps: existing.reps,
+    lapses: existing.lapses,
+    state: existing.state,
+    last_review: existing.last_review
+  }
+
+  const fsrsEngine = fsrs()
+  const schedulingCards = fsrsEngine.repeat(currentCard, now)
+
+  let updatedCard: Card
+  if (rating === Rating.Again) {
+    updatedCard = schedulingCards[Rating.Again].card
+  } else if (rating === Rating.Hard) {
+    updatedCard = schedulingCards[Rating.Hard].card
+  } else if (rating === Rating.Good) {
+    updatedCard = schedulingCards[Rating.Good].card
+  } else {
+    updatedCard = schedulingCards[Rating.Easy].card
+  }
+
+  await db.learningProgress.update(progressId, {
+    due: updatedCard.due,
+    stability: updatedCard.stability,
+    difficulty: updatedCard.difficulty,
+    elapsed_days: updatedCard.elapsed_days,
+    scheduled_days: updatedCard.scheduled_days,
+    learning_steps: updatedCard.learning_steps,
+    reps: updatedCard.reps,
+    lapses: updatedCard.lapses,
+    state: updatedCard.state,
+    last_review: updatedCard.last_review
+  })
+}
+
+export const getProgress = async (
+  flashcardId: string,
+  lang: string,
+  direction: Direction
+): Promise<LearningProgress | undefined> => {
+  const progressId = buildProgressId(flashcardId, lang, direction)
+  return await db.learningProgress.get(progressId)
+}
+
+export const isImageToWordSeen = async (flashcardId: string, lang: string): Promise<boolean> => {
+  const progress = await getProgress(flashcardId, lang, 'i2w')
+  return progress !== undefined
+}
+
+export const isWordToImageUnblocked = async (flashcardId: string, lang: string): Promise<boolean> => {
+  const i2wProgress = await getProgress(flashcardId, lang, 'i2w')
+  if (!i2wProgress) return false
+
+  // w2i is unblocked if i2w has been seen and is not currently due
+  const now = new Date()
+  return new Date(i2wProgress.due) > now
+}
+
+export const setCardDisabled = async (
+  flashcardId: string,
+  lang: string,
+  direction: Direction,
+  isDisabled: boolean
+): Promise<void> => {
+  const progressId = buildProgressId(flashcardId, lang, direction)
+  const existing = await db.learningProgress.get(progressId)
+
+  if (existing) {
+    await db.learningProgress.update(progressId, { isDisabled })
+  }
+}
+
+export const toggleCardArchived = async (
+  flashcardId: string,
+  lang: string,
+  direction: Direction
+): Promise<boolean> => {
+  const progressId = buildProgressId(flashcardId, lang, direction)
+  const existing = await db.learningProgress.get(progressId)
+
+  if (!existing) return false
+
+  const newValue = !existing.isArchived
+  await db.learningProgress.update(progressId, { isArchived: newValue })
+  return newValue
+}

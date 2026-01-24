@@ -1,0 +1,3 @@
+[submodule "glosses4learning-language-reference"]
+	path = glosses4learning-language-reference
+	url = git@github.com:koljapluemer/glosses4learning-language-reference.git

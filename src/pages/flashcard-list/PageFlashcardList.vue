@@ -44,21 +44,26 @@ const toggleSelect = (id: string) => {
   selected.value = newSet
 }
 
-const getImageUrl = (card: FlashCard): string => {
-  const existing = objectUrls.value.get(card.id)
+const getOrCreateUrl = (key: string, blob: Blob): string => {
+  const existing = objectUrls.value.get(key)
   if (existing) return existing
 
-  const url = URL.createObjectURL(card.image)
-  objectUrls.value.set(card.id, url)
+  const url = URL.createObjectURL(blob)
+  objectUrls.value.set(key, url)
   return url
 }
 
-const getLanguageDisplay = (code: string): string => {
+const getImageUrl = (card: FlashCard): string => {
+  return getOrCreateUrl(card.id, card.image)
+}
+
+const getLanguageImageUrl = (card: FlashCard, lang: string, value: Blob): string => {
+  return getOrCreateUrl(`${card.id}:${lang}`, value)
+}
+
+const getLangSymbol = (code: string): string => {
   const info = allLanguages.value[code]
-  if (info) {
-    return `${info.symbols?.[0] || ''} ${info.displayName}`.trim()
-  }
-  return code.toUpperCase()
+  return info?.symbols?.[0] || code.toUpperCase()
 }
 
 const getCardLanguages = (card: FlashCard): string[] => {
@@ -108,7 +113,6 @@ const closeViewModal = () => {
 onMounted(async () => {
   items.value = await loadFlashcards()
 
-  // Load language definitions
   try {
     const response = await fetch('/languages.json')
     allLanguages.value = await response.json()
@@ -118,7 +122,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // Clean up object URLs
   objectUrls.value.forEach(url => URL.revokeObjectURL(url))
   objectUrls.value.clear()
 })
@@ -156,7 +159,7 @@ onBeforeUnmount(() => {
 
     <table
       v-else
-      class="table w-full table-fixed"
+      class="table w-full"
     >
       <thead>
         <tr>
@@ -172,8 +175,8 @@ onBeforeUnmount(() => {
           <th class="w-20">
             Image
           </th>
-          <th>Languages</th>
-          <th class="w-24">
+          <th>Vocabulary</th>
+          <th class="w-20">
             Actions
           </th>
         </tr>
@@ -198,19 +201,31 @@ onBeforeUnmount(() => {
               alt="Flashcard image"
             >
           </td>
-          <td class="truncate">
-            <div class="flex flex-wrap gap-1">
-              <span
+          <td>
+            <div class="flex flex-col gap-1">
+              <div
                 v-for="lang in getCardLanguages(item)"
                 :key="lang"
-                class="badge badge-sm"
+                class="flex items-center gap-2"
               >
-                {{ getLanguageDisplay(lang) }}
-              </span>
+                <span class="text-base-content/60 w-8 shrink-0">{{ getLangSymbol(lang) }}</span>
+                <span
+                  v-if="isTextValue(getLanguageValue(item, lang))"
+                  class="truncate"
+                >
+                  {{ getLanguageValue(item, lang) }}
+                </span>
+                <img
+                  v-else
+                  :src="getLanguageImageUrl(item, lang, getLanguageValue(item, lang) as Blob)"
+                  class="h-6 rounded"
+                  alt="Translation"
+                >
+              </div>
             </div>
           </td>
           <td>
-            <div class="flex gap-2">
+            <div class="flex gap-1">
               <button
                 class="btn btn-sm btn-ghost"
                 @click="handleView(item)"
@@ -236,7 +251,7 @@ onBeforeUnmount(() => {
       <div class="modal-box">
         <div
           v-if="viewModalCard"
-          class="space-y-4"
+          class="flex flex-col gap-4"
         >
           <img
             :src="getImageUrl(viewModalCard)"
@@ -244,20 +259,25 @@ onBeforeUnmount(() => {
             alt="Flashcard image"
           >
 
-          <div class="space-y-2">
+          <div class="flex flex-col gap-2">
             <div
               v-for="lang in viewModalLanguages"
               :key="lang"
               class="flex items-center gap-2"
             >
-              <span class="badge">{{ getLanguageDisplay(lang) }}</span>
-              <span v-if="isTextValue(getLanguageValue(viewModalCard, lang))">
+              <span class="text-base-content/60 w-12">{{ getLangSymbol(lang) }}</span>
+              <span
+                v-if="isTextValue(getLanguageValue(viewModalCard, lang))"
+                class="text-lg"
+              >
                 {{ getLanguageValue(viewModalCard, lang) }}
               </span>
-              <span
+              <img
                 v-else
-                class="text-base-content/60"
-              >(image)</span>
+                :src="getLanguageImageUrl(viewModalCard, lang, getLanguageValue(viewModalCard, lang) as Blob)"
+                class="h-12 rounded"
+                alt="Translation"
+              >
             </div>
           </div>
         </div>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import JSZip from 'jszip'
+import { Download } from 'lucide-vue-next'
 import { createFlashcard } from '@/entities/flashcard/flashcardStore'
 import { showToast } from '@/app/toast/toastStore'
 import ZipUploadButton from './ZipUploadButton.vue'
@@ -38,6 +40,40 @@ const handleZipUpload = async (file: File) => {
     total.value = 0
   }
 }
+
+const downloadExample = async () => {
+  const zip = new JSZip()
+
+  const examples = [
+    { folder: 'banana', files: ['image.webp', 'deu.txt', 'srb.txt'] },
+    { folder: 'car', files: ['image.webp', 'deu.png'] }
+  ]
+
+  for (const example of examples) {
+    const folder = zip.folder(example.folder)
+    if (!folder) continue
+
+    for (const filename of example.files) {
+      try {
+        const response = await fetch(`/data/${example.folder}/${filename}`)
+        if (response.ok) {
+          const blob = await response.blob()
+          folder.file(filename, blob)
+        }
+      } catch {
+        // Skip failed files
+      }
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'flashcards-example.zip'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
@@ -46,11 +82,18 @@ const handleZipUpload = async (file: File) => {
       Upload Flashcards
     </h1>
 
-    <div class="mb-6">
+    <div class="flex gap-2 mb-6">
       <ZipUploadButton
         :loading="uploading"
         @file="handleZipUpload"
       />
+      <button
+        class="btn btn-outline"
+        @click="downloadExample"
+      >
+        <Download />
+        Download Example
+      </button>
     </div>
 
     <div
@@ -67,34 +110,30 @@ const handleZipUpload = async (file: File) => {
       </p>
     </div>
 
-    <div class="card bg-base-200 p-4">
-      <h2 class="font-bold mb-2">
-        ZIP Format Instructions
-      </h2>
-      <p class="mb-2">
-        Create a ZIP file with this structure:
-      </p>
-      <pre class="bg-base-300 p-3 rounded text-sm overflow-x-auto">
-flashcards.zip/
-  apple/
-    image.webp     (main image)
-    deu.txt        (German word)
-    eng.txt        (English word)
+    <div class="card shadow">
+      <div class="card-body">
+        <h2 class="card-title">
+          ZIP Format
+        </h2>
+        <pre class="bg-base-200 p-4 rounded text-sm overflow-x-auto">flashcards.zip/
   banana/
     image.webp
     deu.txt
-    spa.txt        (Spanish word)
-  ...</pre>
-      <ul class="list-disc list-inside mt-3 text-sm space-y-1">
-        <li>Each folder = one flashcard</li>
-        <li>
-          <code class="bg-base-300 px-1 rounded">image.webp</code> (or .jpg/.png) = main image
-        </li>
-        <li>
-          <code class="bg-base-300 px-1 rounded">[lang].txt</code> = word in that language (ISO 639-3 code)
-        </li>
-        <li>Language codes: deu (German), eng (English), spa (Spanish), etc.</li>
-      </ul>
+    srb.txt
+  car/
+    image.webp
+    deu.png</pre>
+        <ul class="list-disc list-inside mt-2 text-sm flex flex-col gap-1">
+          <li>Each folder = one flashcard</li>
+          <li>
+            <code class="bg-base-200 px-1 rounded">image.*</code> = main image (webp/jpg/png)
+          </li>
+          <li>
+            <code class="bg-base-200 px-1 rounded">[lang].txt</code> or <code class="bg-base-200 px-1 rounded">[lang].png</code> = translation
+          </li>
+          <li>Language codes: deu, eng, spa, ita, arb, etc.</li>
+        </ul>
+      </div>
     </div>
   </div>
 </template>

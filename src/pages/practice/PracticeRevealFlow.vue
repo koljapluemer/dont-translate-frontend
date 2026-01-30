@@ -16,8 +16,32 @@ const emit = defineEmits<{
 
 const isRevealed = ref(false)
 
-const languageValue = computed(() => {
-  return props.flashcard.languages[props.practiceCard.languageCode]
+// Shuffle array helper
+const shuffleArray = <T>(arr: T[]): T[] => {
+  const result = [...arr]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j]!, result[i]!]
+  }
+  return result
+}
+
+// For i2w (word on back): pick UP TO 3 random expressions, shuffled
+const languageValue = computed((): (string | Blob)[] => {
+  const expressions = props.flashcard.expressions
+  if (!expressions || expressions.length === 0) return []
+
+  // Pick up to 3 expressions
+  const count = Math.min(3, expressions.length)
+
+  if (count >= expressions.length) {
+    // Return all, shuffled
+    return shuffleArray(expressions)
+  }
+
+  // Shuffle and take first 'count' items
+  const shuffled = shuffleArray(expressions)
+  return shuffled.slice(0, count)
 })
 
 watch(() => props.practiceCard, () => {

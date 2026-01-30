@@ -9,14 +9,20 @@ export const loadFlashcards = async (): Promise<FlashCard[]> => {
 
 export const createFlashcard = async (
   image: Blob,
-  languages: { [iso3Code: string]: string | Blob }
+  language: string,
+  expressions: (string | Blob)[],
+  collection: string,
+  credits?: string
 ): Promise<FlashCard> => {
   const id = buildFlashcardId()
 
   const card: FlashCard = {
     id,
     image,
-    languages: { ...languages }
+    language,
+    expressions,
+    collection,
+    ...(credits && { credits })
   }
 
   await db.flashcards.add(card)
@@ -37,9 +43,7 @@ export const getAvailableLanguages = async (): Promise<string[]> => {
   const cards = await db.flashcards.toArray()
   const langSet = new Set<string>()
   for (const card of cards) {
-    for (const langCode of Object.keys(card.languages)) {
-      langSet.add(langCode)
-    }
+    langSet.add(card.language)
   }
   return Array.from(langSet).sort()
 }

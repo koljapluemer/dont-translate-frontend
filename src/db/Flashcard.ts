@@ -1,5 +1,8 @@
 export interface FlashCard {
   id: string
   image: Blob
-  languages: { [iso3Code: string]: string | Blob }
+  language: string // 3-letter ISO code
+  expressions: (string | Blob)[] // multiple meaning options
+  collection: string
+  credits?: string
 }

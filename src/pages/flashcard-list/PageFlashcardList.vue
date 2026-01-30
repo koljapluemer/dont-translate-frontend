@@ -57,8 +57,8 @@ const getImageUrl = (card: FlashCard): string => {
   return getOrCreateUrl(card.id, card.image)
 }
 
-const getLanguageImageUrl = (card: FlashCard, lang: string, value: Blob): string => {
-  return getOrCreateUrl(`${card.id}:${lang}`, value)
+const getExpressionUrl = (card: FlashCard, idx: number, blob: Blob): string => {
+  return getOrCreateUrl(`${card.id}:expr:${idx}`, blob)
 }
 
 const getLangSymbol = (code: string): string => {
@@ -66,22 +66,13 @@ const getLangSymbol = (code: string): string => {
   return info?.symbols?.[0] || code.toUpperCase()
 }
 
-const getCardLanguages = (card: FlashCard): string[] => {
-  return Object.keys(card.languages).sort()
-}
-
-const getLanguageValue = (card: FlashCard, lang: string): string | Blob | undefined => {
-  return card.languages[lang]
+const getFirstExpression = (card: FlashCard): string | Blob | undefined => {
+  return card.expressions[0]
 }
 
 const isTextValue = (value: string | Blob | undefined): value is string => {
   return typeof value === 'string'
 }
-
-const viewModalLanguages = computed(() => {
-  if (!viewModalCard.value) return []
-  return getCardLanguages(viewModalCard.value)
-})
 
 const handleView = (card: FlashCard) => {
   viewModalCard.value = card
@@ -175,7 +166,9 @@ onBeforeUnmount(() => {
           <th class="w-20">
             Image
           </th>
-          <th>Vocabulary</th>
+          <th>Language</th>
+          <th>Expression</th>
+          <th>Collection</th>
           <th class="w-20">
             Actions
           </th>
@@ -202,27 +195,24 @@ onBeforeUnmount(() => {
             >
           </td>
           <td>
-            <div class="flex flex-col gap-1">
-              <div
-                v-for="lang in getCardLanguages(item)"
-                :key="lang"
-                class="flex items-center gap-2"
-              >
-                <span class="text-base-content/60 w-8 shrink-0">{{ getLangSymbol(lang) }}</span>
-                <span
-                  v-if="isTextValue(getLanguageValue(item, lang))"
-                  class="truncate"
-                >
-                  {{ getLanguageValue(item, lang) }}
-                </span>
-                <img
-                  v-else
-                  :src="getLanguageImageUrl(item, lang, getLanguageValue(item, lang) as Blob)"
-                  class="h-6 rounded"
-                  alt="Translation"
-                >
-              </div>
-            </div>
+            <span class="text-base-content/60">{{ getLangSymbol(item.language) }}</span>
+          </td>
+          <td>
+            <span
+              v-if="isTextValue(getFirstExpression(item))"
+              class="truncate"
+            >
+              {{ getFirstExpression(item) }}
+            </span>
+            <img
+              v-else-if="getFirstExpression(item)"
+              :src="getExpressionUrl(item, 0, getFirstExpression(item) as Blob)"
+              class="h-6 rounded"
+              alt="Expression"
+            >
+          </td>
+          <td>
+            <span class="text-sm">{{ item.collection }}</span>
           </td>
           <td>
             <div class="flex gap-1">
@@ -260,24 +250,47 @@ onBeforeUnmount(() => {
           >
 
           <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2 text-base-content/60">
+              <span class="font-semibold">Language:</span>
+              <span>{{ getLangSymbol(viewModalCard.language) }}</span>
+            </div>
+
+            <div class="flex items-center gap-2 text-base-content/60">
+              <span class="font-semibold">Collection:</span>
+              <span>{{ viewModalCard.collection }}</span>
+            </div>
+
             <div
-              v-for="lang in viewModalLanguages"
-              :key="lang"
-              class="flex items-center gap-2"
+              v-if="viewModalCard.credits"
+              class="flex items-center gap-2 text-base-content/60"
             >
-              <span class="text-base-content/60 w-12">{{ getLangSymbol(lang) }}</span>
-              <span
-                v-if="isTextValue(getLanguageValue(viewModalCard, lang))"
-                class="text-lg"
-              >
-                {{ getLanguageValue(viewModalCard, lang) }}
-              </span>
-              <img
-                v-else
-                :src="getLanguageImageUrl(viewModalCard, lang, getLanguageValue(viewModalCard, lang) as Blob)"
-                class="h-12 rounded"
-                alt="Translation"
-              >
+              <span class="font-semibold">Credits:</span>
+              <span>{{ viewModalCard.credits }}</span>
+            </div>
+
+            <div class="mt-2">
+              <span class="font-semibold text-base-content/60">Expressions:</span>
+              <div class="flex flex-col gap-2 mt-2">
+                <div
+                  v-for="(expr, idx) in viewModalCard.expressions"
+                  :key="idx"
+                  class="flex items-center gap-2"
+                >
+                  <span class="text-base-content/40 w-6">{{ idx + 1 }}.</span>
+                  <span
+                    v-if="isTextValue(expr)"
+                    class="text-lg"
+                  >
+                    {{ expr }}
+                  </span>
+                  <img
+                    v-else
+                    :src="getExpressionUrl(viewModalCard, idx, expr)"
+                    class="h-12 rounded"
+                    alt="Expression"
+                  >
+                </div>
+              </div>
             </div>
           </div>
         </div>

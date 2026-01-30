@@ -13,6 +13,11 @@ class Database extends Dexie {
       flashcards: 'id',
       learningProgress: 'id, due'
     })
+
+    this.version(2).stores({
+      flashcards: 'id, language',
+      learningProgress: 'id, due'
+    })
   }
 }
 

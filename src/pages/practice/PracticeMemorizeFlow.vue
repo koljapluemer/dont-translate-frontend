@@ -20,8 +20,14 @@ let timerId: number | null = null
 
 const progressWidth = computed(() => `${(remainingMs.value / durationMs) * 100}%`)
 
-const languageValue = computed(() => {
-  return props.flashcard.languages[props.practiceCard.languageCode]
+// For w2i (word on front): pick ONE random expression
+const languageValue = computed((): (string | Blob)[] => {
+  const expressions = props.flashcard.expressions
+  if (!expressions || expressions.length === 0) return []
+
+  // Pick one random expression
+  const idx = Math.floor(Math.random() * expressions.length)
+  return [expressions[idx]!]
 })
 
 const stopTimer = () => {

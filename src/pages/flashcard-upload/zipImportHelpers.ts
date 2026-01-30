@@ -2,11 +2,19 @@ import JSZip from 'jszip'
 
 export interface ParsedFlashcard {
   image: Blob
-  languages: { [iso3Code: string]: string | Blob }
+  language: string
+  expressions: (string | Blob)[]
+  credits?: string
+}
+
+interface JsonlEntry {
+  language: string
+  image: string
+  expressions: string[]
+  credits?: string
 }
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-const TEXT_EXTENSIONS = ['txt']
 
 function getExtension(filename: string): string {
   const parts = filename.toLowerCase().split('.')
@@ -17,56 +25,70 @@ function isImageFile(filename: string): boolean {
   return IMAGE_EXTENSIONS.includes(getExtension(filename))
 }
 
-function isTextFile(filename: string): boolean {
-  return TEXT_EXTENSIONS.includes(getExtension(filename))
-}
-
-function getBaseName(filename: string): string {
-  const parts = filename.split('.')
-  parts.pop()
-  return parts.join('.')
-}
-
-export async function parseFlashcardsFromZip(file: File): Promise<ParsedFlashcard[]> {
+export async function parseFlashcardsFromJsonl(file: File): Promise<ParsedFlashcard[]> {
   const zip = await JSZip.loadAsync(file)
-  const flashcards: ParsedFlashcard[] = []
 
-  // Group files by folder
-  const folders = new Map<string, JSZip.JSZipObject[]>()
+  // Find flashcards.jsonl anywhere in the ZIP
+  const jsonlFiles = zip.file(/flashcards\.jsonl$/)
+  if (jsonlFiles.length === 0) {
+    throw new Error('flashcards.jsonl not found in ZIP')
+  }
+  const jsonlFile = jsonlFiles[0]!
 
+  const jsonlContent = await jsonlFile.async('string')
+  const lines = jsonlContent.split('\n').filter((line: string) => line.trim())
+
+  // Build a map of filename -> JSZipObject for quick lookup
+  const fileMap = new Map<string, JSZip.JSZipObject>()
   zip.forEach((relativePath, zipEntry) => {
-    if (zipEntry.dir) return
-
-    const parts = relativePath.split('/')
-    if (parts.length >= 2) {
-      const folderPath = parts.slice(0, -1).join('/')
-      const existing = folders.get(folderPath) || []
-      existing.push(zipEntry)
-      folders.set(folderPath, existing)
+    if (!zipEntry.dir) {
+      // Get just the filename (no directory path)
+      const filename = relativePath.split('/').pop() || relativePath
+      fileMap.set(filename, zipEntry)
     }
   })
 
-  for (const [, files] of folders) {
-    let mainImage: Blob | null = null
-    const languages: { [iso3Code: string]: string | Blob } = {}
+  const flashcards: ParsedFlashcard[] = []
 
-    for (const zipEntry of files) {
-      const filename = zipEntry.name.split('/').pop() || ''
-      const baseName = getBaseName(filename)
+  for (const line of lines) {
+    let entry: JsonlEntry
+    try {
+      entry = JSON.parse(line)
+    } catch {
+      console.warn('Invalid JSON line:', line)
+      continue
+    }
 
-      if (filename.startsWith('image.') && isImageFile(filename)) {
-        mainImage = await zipEntry.async('blob')
-      } else if (isImageFile(filename)) {
-        languages[baseName] = await zipEntry.async('blob')
-      } else if (isTextFile(filename)) {
-        const text = await zipEntry.async('string')
-        languages[baseName] = text.trim()
+    if (!entry.language || !entry.image || !entry.expressions || !Array.isArray(entry.expressions)) {
+      console.warn('Missing required fields in line:', line)
+      continue
+    }
+
+    // Resolve image
+    const imageFile = fileMap.get(entry.image)
+    if (!imageFile) {
+      console.warn('Image file not found:', entry.image)
+      continue
+    }
+    const imageBlob = await imageFile.async('blob')
+
+    // Resolve expressions: check if each is a valid filename in ZIP → Blob, else string
+    const resolvedExpressions: (string | Blob)[] = []
+    for (const expr of entry.expressions) {
+      const exprFile = fileMap.get(expr)
+      if (exprFile && isImageFile(expr)) {
+        resolvedExpressions.push(await exprFile.async('blob'))
+      } else {
+        resolvedExpressions.push(expr)
       }
     }
 
-    if (mainImage && Object.keys(languages).length > 0) {
-      flashcards.push({ image: mainImage, languages })
-    }
+    flashcards.push({
+      image: imageBlob,
+      language: entry.language,
+      expressions: resolvedExpressions,
+      ...(entry.credits && { credits: entry.credits })
+    })
   }
 
   return flashcards

@@ -5,6 +5,7 @@ import { Upload } from 'lucide-vue-next'
 defineProps<{
   label?: string
   loading?: boolean
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -40,7 +41,7 @@ const openFilePicker = () => {
     >
     <button
       class="btn btn-primary"
-      :disabled="loading"
+      :disabled="loading || disabled"
       @click="openFilePicker"
     >
       <Upload />

@@ -59,7 +59,8 @@ function getEligiblePracticeCards(): PracticeCard[] {
   const now = new Date()
 
   for (const card of flashcards.value) {
-    if (!(lang in card.languages)) continue
+    // Filter by card.language matching selected language
+    if (card.language !== lang) continue
 
     const w2iProgressId = buildProgressId(card.id, lang, 'w2i')
     const i2wProgressId = buildProgressId(card.id, lang, 'i2w')
@@ -203,9 +204,7 @@ onMounted(async () => {
   const stored = getSelectedLanguage()
   const availableLangs = new Set<string>()
   for (const card of flashcards.value) {
-    for (const lang of Object.keys(card.languages)) {
-      availableLangs.add(lang)
-    }
+    availableLangs.add(card.language)
   }
 
   if (stored && availableLangs.has(stored)) {
@@ -242,7 +241,10 @@ onMounted(async () => {
       </router-link>
     </div>
 
-    <div v-else-if="flashcards.length === 0" class="text-center">
+    <div
+      v-else-if="flashcards.length === 0"
+      class="text-center"
+    >
       <p>Currently nothing to practice.</p>
       <router-link
         to="/upload"

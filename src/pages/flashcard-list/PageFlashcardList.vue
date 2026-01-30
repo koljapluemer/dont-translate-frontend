@@ -106,7 +106,7 @@ onMounted(async () => {
   items.value = await loadFlashcards()
 
   try {
-    const response = await fetch('/languages.json')
+    const response = await fetch('/dont-translate-data/available_languages.json')
     allLanguages.value = await response.json()
   } catch {
     console.warn('Could not load languages.json')

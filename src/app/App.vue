@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterView, RouterLink } from 'vue-router'
-import { Settings, Play, Layers, Upload } from 'lucide-vue-next'
+import { Settings, Play, Layers, Upload, FolderDown } from 'lucide-vue-next'
 import ToastContainer from './toast/ToastContainer.vue'
 </script>
 
@@ -29,6 +29,13 @@ import ToastContainer from './toast/ToastContainer.vue'
           >
             <Upload />
             <span class="hidden sm:inline">Upload</span>
+          </RouterLink>
+          <RouterLink
+            to="/collections"
+            class="btn btn-ghost"
+          >
+            <FolderDown />
+            <span class="hidden sm:inline">Collections</span>
           </RouterLink>
         </div>
       </div>

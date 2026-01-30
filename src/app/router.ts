@@ -3,6 +3,7 @@ import PageFlashcardList from '@/pages/flashcard-list/PageFlashcardList.vue'
 import PageFlashcardUpload from '@/pages/flashcard-upload/PageFlashcardUpload.vue'
 import PagePractice from '@/pages/practice/PagePractice.vue'
 import PageSettings from '@/pages/settings/PageSettings.vue'
+import PageCollectionsList from '@/pages/collections-list/PageCollectionsList.vue'
 import { pushNavigationHistory } from './navigation/navigationStore'
 
 const router = createRouter({
@@ -31,6 +32,11 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: PageSettings
+    },
+    {
+      path: '/collections',
+      name: 'collections-list',
+      component: PageCollectionsList
     }
   ]
 })

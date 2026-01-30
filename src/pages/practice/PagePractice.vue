@@ -122,22 +122,11 @@ function selectNextCard(): { practiceCard: PracticeCard; flashcard: FlashCard } 
   const unseenFiltered = unseen.filter(notSameFlashcard)
 
   // If last was memorize, strongly prefer due cards to avoid back-to-back memorize
-  if (lastWasMemorize.value) {
-    // Try due cards (not same flashcard)
-    if (dueFiltered.length > 0) {
-      const selected = pickRandom(dueFiltered)
-      if (selected) {
-        const flashcard = flashcards.value.find(c => c.id === selected.flashcardId)
-        if (flashcard) return { practiceCard: selected, flashcard }
-      }
-    }
-    // Fall back to due cards (even same flashcard, but different direction)
-    if (due.length > 0) {
-      const selected = pickRandom(due)
-      if (selected) {
-        const flashcard = flashcards.value.find(c => c.id === selected.flashcardId)
-        if (flashcard) return { practiceCard: selected, flashcard }
-      }
+  if (lastWasMemorize.value && dueFiltered.length > 0) {
+    const selected = pickRandom(dueFiltered)
+    if (selected) {
+      const flashcard = flashcards.value.find(c => c.id === selected.flashcardId)
+      if (flashcard) return { practiceCard: selected, flashcard }
     }
   }
 
@@ -152,12 +141,6 @@ function selectNextCard(): { practiceCard: PracticeCard; flashcard: FlashCard } 
     selected = pickRandom(dueFiltered)
   } else if (unseenFiltered.length > 0) {
     selected = pickRandom(unseenFiltered)
-  } else if (due.length > 0) {
-    // Allow same flashcard as last resort
-    selected = pickRandom(due)
-  } else if (unseen.length > 0) {
-    // Allow same flashcard as last resort
-    selected = pickRandom(unseen)
   }
 
   if (!selected) return null

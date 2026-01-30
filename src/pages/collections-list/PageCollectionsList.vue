@@ -19,32 +19,39 @@ interface CollectionInfo {
 const collections = ref<CollectionInfo[]>([])
 const allLanguages = ref<Record<string, LanguageInfo>>({})
 const loading = ref(true)
-const importingId = ref<string | null>(null)
+const importingKey = ref<string | null>(null)
 const importProgress = ref({ current: 0, total: 0 })
+
+const getImportKey = (collectionId: string, lang?: string): string => {
+  return lang ? `${collectionId}:${lang}` : collectionId
+}
 
 const getLangSymbol = (code: string): string => {
   const info = allLanguages.value[code]
   return info?.symbols?.[0] || code.toUpperCase()
 }
 
-const handleImport = async (collection: CollectionInfo) => {
-  importingId.value = collection.id
+const handleImport = async (collection: CollectionInfo, lang?: string) => {
+  importingKey.value = getImportKey(collection.id, lang)
   importProgress.value = { current: 0, total: 0 }
+
+  const langLabel = lang ? allLanguages.value[lang]?.displayName || lang : 'all languages'
 
   try {
     const count = await importCollection(
       collection.id,
       collection.name,
+      lang,
       (current, total) => {
         importProgress.value = { current, total }
       }
     )
-    showToast(`Imported ${count} flashcards from "${collection.name}"`, 'success')
+    showToast(`Imported ${count} flashcards (${langLabel}) from "${collection.name}"`, 'success')
   } catch (err) {
     console.error('Import failed:', err)
     showToast(`Failed to import "${collection.name}"`, 'error')
   } finally {
-    importingId.value = null
+    importingKey.value = null
   }
 }
 
@@ -122,19 +129,35 @@ onMounted(async () => {
             </span>
           </div>
 
-          <div class="card-actions justify-end mt-2">
+          <div class="card-actions flex-wrap justify-end mt-2 gap-2">
             <button
-              class="btn btn-primary"
-              :disabled="importingId !== null"
-              @click="handleImport(collection)"
+              v-for="lang in collection.languages"
+              :key="lang"
+              class="btn btn-outline btn-sm"
+              :disabled="importingKey !== null"
+              @click="handleImport(collection, lang)"
             >
-              <template v-if="importingId === collection.id">
-                <Loader2 class="animate-spin" />
-                {{ importProgress.current }} / {{ importProgress.total }}
+              <template v-if="importingKey === getImportKey(collection.id, lang)">
+                <Loader2 class="animate-spin w-4 h-4" />
+                {{ importProgress.current }}/{{ importProgress.total }}
               </template>
               <template v-else>
-                <Download />
-                Import
+                <Download class="w-4 h-4" />
+                {{ getLangSymbol(lang) }}
+              </template>
+            </button>
+            <button
+              class="btn btn-primary btn-sm"
+              :disabled="importingKey !== null"
+              @click="handleImport(collection)"
+            >
+              <template v-if="importingKey === getImportKey(collection.id)">
+                <Loader2 class="animate-spin w-4 h-4" />
+                {{ importProgress.current }}/{{ importProgress.total }}
+              </template>
+              <template v-else>
+                <Download class="w-4 h-4" />
+                All
               </template>
             </button>
           </div>

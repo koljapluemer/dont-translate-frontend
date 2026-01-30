@@ -25,13 +25,21 @@ function isImageFilename(value: string): boolean {
 export async function importCollection(
   collectionId: string,
   collectionName: string,
+  languageFilter?: string,
   onProgress?: (current: number, total: number) => void
 ): Promise<number> {
   const basePath = `/dont-translate-data/collections/${collectionId}`
 
   const response = await fetch(`${basePath}/flashcards.jsonl`)
   const text = await response.text()
-  const lines = text.split('\n').filter(line => line.trim())
+  const allLines = text.split('\n').filter(line => line.trim())
+
+  const lines = languageFilter
+    ? allLines.filter(line => {
+        const entry: CollectionEntry = JSON.parse(line)
+        return entry.language === languageFilter
+      })
+    : allLines
 
   let imported = 0
   for (const line of lines) {

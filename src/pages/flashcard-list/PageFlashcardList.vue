@@ -61,7 +61,8 @@ const getExpressionUrl = (card: FlashCard, idx: number, blob: Blob): string => {
   return getOrCreateUrl(`${card.id}:expr:${idx}`, blob)
 }
 
-const getLangSymbol = (code: string): string => {
+const getLangSymbol = (code: string | undefined): string => {
+  if (!code) return '?'
   const info = allLanguages.value[code]
   return info?.symbols?.[0] || code.toUpperCase()
 }

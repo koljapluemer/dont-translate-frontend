@@ -7,7 +7,7 @@ class Database extends Dexie {
   declare learningProgress: EntityTable<LearningProgress, 'id'>
 
   constructor() {
-    super('dont-translate')
+    super('dont-translate-v2')
 
     this.version(1).stores({
       flashcards: 'id',

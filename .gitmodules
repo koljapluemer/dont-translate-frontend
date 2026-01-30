@@ -1,0 +1,3 @@
+[submodule "public/dont-translate-data"]
+	path = public/dont-translate-data
+	url = git@github.com:koljapluemer/dont-translate-data.git

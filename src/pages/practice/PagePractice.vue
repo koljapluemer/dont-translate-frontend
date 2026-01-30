@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { loadFlashcards, createFlashcard } from '@/entities/flashcard/flashcardStore'
+import { loadFlashcards } from '@/entities/flashcard/flashcardStore'
 import {
   loadLearningProgress,
   initializeNewCard,
@@ -8,7 +8,6 @@ import {
   type Direction
 } from '@/entities/learning-progress/LearningProgressStore'
 import { getSelectedLanguage, setSelectedLanguage } from '@/app/storage/selectedLanguage'
-import { loadFlashcardsFromPublicData } from '@/pages/flashcard-upload/zipImportHelpers'
 import type { FlashCard } from '@/db/Flashcard'
 import type { LearningProgress } from '@/db/LearningProgress'
 import type { Rating } from 'ts-fsrs'
@@ -50,16 +49,6 @@ async function loadData() {
     map.set(p.id, p)
   })
   progressMap.value = map
-}
-
-async function seedFromPublicData() {
-  const seeded = await loadFlashcardsFromPublicData()
-  for (const item of seeded) {
-    await createFlashcard(item.image, item.languages)
-  }
-  if (seeded.length > 0) {
-    await loadData()
-  }
 }
 
 function getEligiblePracticeCards(): PracticeCard[] {
@@ -211,10 +200,6 @@ async function handleKnownCardComplete(rating: Rating) {
 onMounted(async () => {
   await loadData()
 
-  if (flashcards.value.length === 0) {
-    await seedFromPublicData()
-  }
-
   const stored = getSelectedLanguage()
   const availableLangs = new Set<string>()
   for (const card of flashcards.value) {
@@ -257,13 +242,13 @@ onMounted(async () => {
       </router-link>
     </div>
 
-    <div v-else-if="flashcards.length === 0">
-      <p>No flashcards yet.</p>
+    <div v-else-if="flashcards.length === 0" class="text-center">
+      <p>Currently nothing to practice.</p>
       <router-link
         to="/upload"
-        class="btn btn-primary mt-2"
+        class="btn btn-primary mt-4"
       >
-        Upload Flashcards
+        Upload Data
       </router-link>
     </div>
 

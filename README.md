@@ -1,5 +1,8 @@
-# Karten
+# Don't Translate
 
+**tiny language learning app where you learn with images instead of translations**
+
+![](doc/screenshot.png)
 
 ## Tech Stack
 
@@ -31,7 +34,3 @@ npm run lint
 # Fix linting issues
 npm run lint:fix
 ```
-
-## Architecture
-
-See also [the developer guidelines](developer-guidelines.md) for detailed architecture and design guidelines.

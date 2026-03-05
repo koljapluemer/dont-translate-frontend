@@ -59,7 +59,7 @@ onMounted(async () => {
   try {
     const [metadata, languages] = await Promise.all([
       fetchCollectionMetadata(),
-      fetch('/dont-translate-data/available_languages.json').then(r => r.json())
+      fetch('/data/available_languages.json').then(r => r.json())
     ])
 
     allLanguages.value = languages

@@ -8,12 +8,12 @@ interface CollectionEntry {
 }
 
 export async function fetchCollectionMetadata(): Promise<Record<string, string>> {
-  const response = await fetch('/dont-translate-data/collections.json')
+  const response = await fetch('/data/collections.json')
   return await response.json()
 }
 
 export async function fetchCollectionLanguages(collectionId: string): Promise<string[]> {
-  const response = await fetch(`/dont-translate-data/collections/${collectionId}/languages.txt`)
+  const response = await fetch(`/data/collections/${collectionId}/languages.txt`)
   const text = await response.text()
   return text.split('\n').filter(line => line.trim())
 }
@@ -28,7 +28,7 @@ export async function importCollection(
   languageFilter?: string,
   onProgress?: (current: number, total: number) => void
 ): Promise<number> {
-  const basePath = `/dont-translate-data/collections/${collectionId}`
+  const basePath = `/data/collections/${collectionId}`
 
   const response = await fetch(`${basePath}/flashcards.jsonl`)
   const text = await response.text()

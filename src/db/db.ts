@@ -1,9 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { FlashCard } from './Flashcard'
 import type { LearningProgress } from './LearningProgress'
 
 class Database extends Dexie {
-  declare flashcards: EntityTable<FlashCard, 'id'>
   declare learningProgress: EntityTable<LearningProgress, 'id'>
 
   constructor() {
@@ -16,6 +14,11 @@ class Database extends Dexie {
 
     this.version(2).stores({
       flashcards: 'id, language',
+      learningProgress: 'id, due'
+    })
+
+    this.version(3).stores({
+      flashcards: null,
       learningProgress: 'id, due'
     })
   }

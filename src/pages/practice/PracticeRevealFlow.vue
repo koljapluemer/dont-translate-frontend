@@ -27,7 +27,7 @@ const shuffleArray = <T>(arr: T[]): T[] => {
 }
 
 // For i2w (word on back): pick UP TO 3 random expressions, shuffled
-const languageValue = computed((): (string | Blob)[] => {
+const languageValue = computed((): string[] => {
   const expressions = props.flashcard.expressions
   if (!expressions || expressions.length === 0) return []
 

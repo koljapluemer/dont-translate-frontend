@@ -1,8 +1,7 @@
 export interface FlashCard {
   id: string
-  image: Blob
+  image: string // URL path
   language: string // 3-letter ISO code
-  expressions: (string | Blob)[] // multiple meaning options
-  collection: string
+  expressions: string[]
   credits?: string
 }

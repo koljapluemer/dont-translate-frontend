@@ -21,7 +21,7 @@ let timerId: number | null = null
 const progressWidth = computed(() => `${(remainingMs.value / durationMs) * 100}%`)
 
 // For w2i (word on front): pick ONE random expression
-const languageValue = computed((): (string | Blob)[] => {
+const languageValue = computed((): string[] => {
   const expressions = props.flashcard.expressions
   if (!expressions || expressions.length === 0) return []
 
